@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -27,6 +28,8 @@ static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+static struct list wait_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -92,6 +95,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&wait_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -490,6 +494,17 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
+  while (!list_empty (&wait_list)) {
+    struct list_elem *e = list_begin (&wait_list);
+    struct thread *t = list_entry (e, struct thread, elem);
+    if (timer_elapsed(t->wait_start) >= t->wait_length) {
+      list_pop_front (&wait_list);
+      t->wait_flag = false;
+      thread_unblock (t);
+    }
+    else
+      break;
+  }
   if (list_empty (&ready_list))
     return idle_thread;
   else
@@ -582,3 +597,26 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+static bool list_less_custom (const struct list_elem *a,
+                              const struct list_elem *b,
+                              void *aux)
+{
+  struct thread *t1 = list_entry (a, struct thread, elem);
+  struct thread *t2 = list_entry (b, struct thread, elem);
+  return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
+}
+void
+thread_sleep(int64_t start, int64_t ticks)
+{
+  enum intr_level old_level;
+  struct thread *cur = thread_current ();
+  cur->wait_flag = true;
+  cur->wait_start = start;
+  cur->wait_length = ticks;
+  list_insert_ordered(&wait_list, &cur->elem, list_less_custom, NULL);
+
+  old_level = intr_disable ();
+  thread_block ();
+  intr_set_level (old_level);
+}
