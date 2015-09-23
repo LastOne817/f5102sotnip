@@ -148,7 +148,7 @@ bool list_less_custom (const struct list_elem *,
                               const struct list_elem *,
                               void *);
 
-bool list_less_priority_custom (const struct list_elem *,
-                                       const struct list_elem *,
-                                       void *);
+bool list_more_priority (const struct list_elem *,
+                                const struct list_elem *,
+                                void *);
 #endif /* threads/thread.h */
