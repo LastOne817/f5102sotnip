@@ -141,6 +141,18 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+
+  while (!list_empty (&wait_list)) {
+    struct list_elem *e = list_begin (&wait_list);
+    struct thread *t = list_entry (e, struct thread, elem);
+    if (timer_elapsed(t->wait_start) >= t->wait_length) {
+      list_pop_front (&wait_list);
+      t->wait_flag = false;
+      thread_unblock (t);
+    }
+    else
+      break;
+  }
 }
 
 /* Prints thread statistics. */
@@ -496,17 +508,6 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
-  while (!list_empty (&wait_list)) {
-    struct list_elem *e = list_begin (&wait_list);
-    struct thread *t = list_entry (e, struct thread, elem);
-    if (timer_elapsed(t->wait_start) >= t->wait_length) {
-      list_pop_front (&wait_list);
-      t->wait_flag = false;
-      thread_unblock (t);
-    }
-    else
-      break;
-  }
   if (list_empty (&ready_list))
     return idle_thread;
   else
