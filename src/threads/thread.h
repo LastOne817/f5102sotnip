@@ -144,4 +144,11 @@ int thread_get_load_avg (void);
 
 void thread_sleep(int64_t, int64_t);
 
+bool list_less_custom (const struct list_elem *,
+                              const struct list_elem *,
+                              void *);
+
+bool list_less_priority_custom (const struct list_elem *,
+                                       const struct list_elem *,
+                                       void *);
 #endif /* threads/thread.h */
