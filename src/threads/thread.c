@@ -204,6 +204,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_yield();
 
   return tid;
 }
@@ -241,10 +242,12 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back (&ready_list, &t->elem);
-  list_insert_ordered(&ready_list, &t->elem, list_more_priority, NULL);
+  list_push_back (&ready_list, &t->elem);
+  // list_insert_ordered(&ready_list, &t->elem, list_more_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+
+  list_sort(&ready_list, list_more_priority, NULL);
 }
 
 /* Returns the name of the running thread. */
@@ -313,8 +316,9 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    //list_push_back (&ready_list, &cur->elem);
-    list_insert_ordered(&ready_list, &cur->elem, list_more_priority, NULL);
+    list_push_back (&ready_list, &cur->elem);
+    list_sort(&ready_list, list_more_priority, NULL);
+    // list_insert_ordered(&ready_list, &cur->elem, list_more_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -342,6 +346,7 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -601,24 +606,6 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-static bool list_less_custom (const struct list_elem *a,
-                              const struct list_elem *b,
-                              void *aux)
-{
-  struct thread *t1 = list_entry (a, struct thread, elem);
-  struct thread *t2 = list_entry (b, struct thread, elem);
-  return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
-}
-
-static bool list_more_priority (const struct list_elem *a,
-                                const struct list_elem *b,
-                                void *aux)
-{
-  struct thread *t1 = list_entry (a, struct thread, elem);
-  struct thread *t2 = list_entry (b, struct thread, elem);
-  return t1->priority > t2->priority;
-}
-
 void
 thread_sleep(int64_t start, int64_t ticks)
 {
@@ -633,3 +620,23 @@ thread_sleep(int64_t start, int64_t ticks)
   thread_block ();
   intr_set_level (old_level);
 }
+
+bool list_more_priority (const struct list_elem *a,
+                              const struct list_elem *b,
+                              void *aux)
+{
+  struct thread *t1 = list_entry (a, struct thread, elem);
+  struct thread *t2 = list_entry (b, struct thread, elem);
+  return t1->priority > t2->priority;
+}
+
+bool list_less_custom (const struct list_elem *a,
+                              const struct list_elem *b,
+                              void *aux)
+{
+  struct thread *t1 = list_entry (a, struct thread, elem);
+  struct thread *t2 = list_entry (b, struct thread, elem);
+  return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
+}
+
+
