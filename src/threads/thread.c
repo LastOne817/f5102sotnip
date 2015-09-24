@@ -600,7 +600,7 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-static bool list_less_custom (const struct list_elem *a,
+bool list_less_custom (const struct list_elem *a,
                               const struct list_elem *b,
                               void *aux)
 {
@@ -609,7 +609,7 @@ static bool list_less_custom (const struct list_elem *a,
   return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
 }
 
-static bool list_more_priority (const struct list_elem *a,
+bool list_more_priority (const struct list_elem *a,
                                 const struct list_elem *b,
                                 void *aux)
 {
