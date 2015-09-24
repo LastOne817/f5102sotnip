@@ -141,18 +141,6 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-
-  while (!list_empty (&wait_list)) {
-    struct list_elem *e = list_begin (&wait_list);
-    struct thread *t = list_entry (e, struct thread, elem);
-    if (timer_elapsed(t->wait_start) >= t->wait_length) {
-      list_pop_front (&wait_list);
-      t->wait_flag = false;
-      thread_unblock (t);
-    }
-    else
-      break;
-  }
 }
 
 /* Prints thread statistics. */
@@ -216,7 +204,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  thread_yield ();
+  if( thread_current () != idle_thread && priority > thread_current ()->priority)
+    thread_yield ();
 
   return tid;
 }
@@ -355,7 +344,8 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-  thread_yield ();
+  if(thread_current () != idle_thread)
+    thread_yield ();
 }
 
 /* Returns the current thread's priority. */
@@ -510,6 +500,15 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
+  if (!list_empty (&wait_list)) {
+    struct list_elem *e = list_begin (&wait_list);
+    struct thread *t = list_entry (e, struct thread, elem);
+    if (timer_elapsed(t->wait_start) >= t->wait_length) {
+      t->wait_flag = false;
+      return (list_entry (list_pop_front (&wait_list), struct thread, elem));
+    }
+  }
+
   if (list_empty (&ready_list))
     return idle_thread;
   else
