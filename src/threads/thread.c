@@ -204,6 +204,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  if (priority > thread_current ()->priority)
+    thread_yield ();
 
   return tid;
 }
@@ -244,8 +246,6 @@ thread_unblock (struct thread *t)
   //list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, list_more_priority, NULL);
   t->status = THREAD_READY;
-  if( !intr_context() && thread_current () != idle_thread && t->priority > thread_current ()->priority)
-    thread_yield ();
   intr_set_level (old_level);
 }
 
@@ -344,7 +344,20 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-  if(thread_current () != idle_thread)
+  bool yield_required = false;
+
+  enum intr_level old_level = intr_disable ();
+
+  if (!list_empty (&ready_list)) {
+    struct thread *t = list_entry (list_front (&ready_list), struct thread, elem);
+
+    if (t->priority > new_priority)
+      yield_required = true;
+  }
+
+  intr_set_level (old_level);
+
+  if (yield_required)
     thread_yield ();
 }
 
@@ -500,13 +513,16 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
-  if (!list_empty (&wait_list)) {
+  while (!list_empty (&wait_list)) {
     struct list_elem *e = list_begin (&wait_list);
     struct thread *t = list_entry (e, struct thread, elem);
     if (timer_elapsed(t->wait_start) >= t->wait_length) {
+      list_pop_front (&wait_list);
       t->wait_flag = false;
-      return (list_entry (list_pop_front (&wait_list), struct thread, elem));
+      thread_unblock (t);
     }
+    else
+      break;
   }
 
   if (list_empty (&ready_list))
