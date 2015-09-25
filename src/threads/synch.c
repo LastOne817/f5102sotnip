@@ -187,7 +187,7 @@ lock_init (struct lock *lock)
 void
 propagate_donation(int priority, struct thread *iterate_thread, int level)
 {
-  if (level > 2)
+  if (level > 8)
     return;
 
   struct list_elem *e1;
@@ -240,8 +240,6 @@ lock_acquire (struct lock *lock)
       donee_list_elem.point = point;
       donee_list_elem.lock = lock;
       list_push_back(&cur->donee_list, &donee_list_elem.elem);
-
-
       propagate_donation(cur->priority, lock_holder_thread, 0);
     }
     list_sort(&sema->waiters, list_more_priority, NULL);
@@ -299,6 +297,7 @@ lock_release (struct lock *lock)
       donor_list_elem = list_entry (e1, struct donation_list_elem, elem);
       if (lock == donor_list_elem->lock) {
         list_remove(e1);
+        list_remove(&donor_list_elem->opponent_donation_list_elem->elem);
         /* opponent_thread = donor_list_elem->opponent_thread; */
 
         /* if(!list_empty(&opponent_thread->donee_list)) { */

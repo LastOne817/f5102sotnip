@@ -89,12 +89,6 @@ struct donation_list_elem
     struct donation_list_elem *opponent_donation_list_elem;
   };
 
-struct lock_list_elem
-  {
-    struct list_elem elem;
-    struct lock *lock;
-  };
-
 struct thread
   {
     /* Owned by thread.c. */
