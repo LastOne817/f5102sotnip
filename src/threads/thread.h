@@ -83,10 +83,8 @@ typedef int tid_t;
 struct donation_list_elem
   {
     struct list_elem elem;
-    struct thread *holder;
-    struct lock *lock;
+    struct thread *donor;
     int point;
-    struct donation_list_elem *opponent_donation_list_elem;
   };
 
 struct thread
@@ -115,7 +113,7 @@ struct thread
     int wait_length;
 
     struct list donor_list;
-    struct list donee_list;
+    struct lock *waiting_lock;
   };
 
 /* If false (default), use round-robin scheduler.

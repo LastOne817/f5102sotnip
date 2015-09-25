@@ -185,21 +185,20 @@ lock_init (struct lock *lock)
 }
 
 void
-propagate_donation(int priority, struct thread *iterate_thread, int level)
+propagate_donation(int priority, struct thread *t, int level)
 {
   if (level > 8)
     return;
 
-  struct list_elem *e1;
-  struct donation_list_elem *donee_list_elem;
-  if (!list_empty(&iterate_thread->donee_list)) {
-    for (e1 = list_begin (&iterate_thread->donee_list); e1 != list_end (&iterate_thread->donee_list); e1 = list_next (e1)) {
-      donee_list_elem = list_entry (e1, struct donation_list_elem, elem);
-      int update_point = priority - donee_list_elem->opponent_donation_list_elem->holder->priority;
-      if (update_point > 0) {
-        donee_list_elem->point = update_point;
-        donee_list_elem->opponent_donation_list_elem->point = update_point;
-        propagate_donation(priority, donee_list_elem->opponent_donation_list_elem->holder, level + 1);
+  struct list_elem *e;
+  struct donation_list_elem *donation_list_elem;
+  if (t-> waiting_lock != NULL && t->waiting_lock->holder != NULL){
+    int update_point = priority - t->waiting_lock->holder->priority;
+    for (e = list_begin (&t->waiting_lock->holder->donor_list); e != list_end (&t->waiting_lock->holder->donor_list); e = list_next (e)) {
+      donation_list_elem = list_entry (e, struct donation_list_elem, elem);
+      if (donation_list_elem->donor == t && update_point > 0) {
+        donation_list_elem->point = update_point;
+        propagate_donation(priority, t->waiting_lock->holder, level + 1);
       }
     }
   }
@@ -223,23 +222,17 @@ lock_acquire (struct lock *lock)
   struct semaphore *sema = &lock->semaphore;
   struct thread *cur = thread_current ();
 
+
   if (lock->holder != NULL) {
+    cur->waiting_lock = lock;
     struct thread *lock_holder_thread = lock->holder;
     int point = cur->priority - lock_holder_thread->priority;
     if (point > 0) {
-      struct donation_list_elem donor_list_elem;
-      struct donation_list_elem donee_list_elem;
-      donor_list_elem.holder = lock_holder_thread;
-      donor_list_elem.opponent_donation_list_elem = &donee_list_elem;
-      donor_list_elem.point = point;
-      donor_list_elem.lock = lock;
-      list_push_back(&lock_holder_thread->donor_list, &donor_list_elem.elem);
+      struct donation_list_elem donation_list_elem;
+      donation_list_elem.donor = cur;
+      donation_list_elem.point = point;
+      list_push_back(&lock_holder_thread->donor_list, &donation_list_elem.elem);
 
-      donee_list_elem.holder = cur;
-      donee_list_elem.opponent_donation_list_elem = &donor_list_elem;
-      donee_list_elem.point = point;
-      donee_list_elem.lock = lock;
-      list_push_back(&cur->donee_list, &donee_list_elem.elem);
       propagate_donation(cur->priority, lock_holder_thread, 0);
     }
     list_sort(&sema->waiters, list_more_priority, NULL);
@@ -286,32 +279,17 @@ lock_release (struct lock *lock)
   struct semaphore *sema = &lock->semaphore;
   struct thread *cur = thread_current ();
 
-  struct list_elem *e1;
-  /* struct list_elem *e2; */
-  struct donation_list_elem *donor_list_elem;
-  /* struct donation_list_elem *donee_list_elem; */
-  /* struct thread *opponent_thread; */
-
+  struct list_elem *e;
+  struct donation_list_elem *donation_list_elem;
   if(!list_empty(&cur->donor_list)) {
-    for (e1 = list_begin (&cur->donor_list); e1 != list_end (&cur->donor_list); e1 = list_next (e1)) {
-      donor_list_elem = list_entry (e1, struct donation_list_elem, elem);
-      if (lock == donor_list_elem->lock) {
-        list_remove(e1);
-        list_remove(&donor_list_elem->opponent_donation_list_elem->elem);
-        /* opponent_thread = donor_list_elem->opponent_thread; */
-
-        /* if(!list_empty(&opponent_thread->donee_list)) { */
-        /*   for (e2 = list_begin (&opponent_thread->donee_list); e2 != list_end (&opponent_thread->donee_list); e2 = list_next (e2)) { */
-        /*     donee_list_elem = list_entry (e2, struct donation_list_elem, elem); */
-        /*     if (lock == donee_list_elem->lock) { */
-        /*       list_remove(e2); */
-        /*     } */
-        /*   } */
-        /* } */
-
-        list_sort(&sema->waiters, list_more_priority, NULL);
+    for (e = list_begin (&cur->donor_list); e != list_end (&cur->donor_list); e = list_next (e)) {
+      donation_list_elem = list_entry (e, struct donation_list_elem, elem);
+      if (lock == donation_list_elem->donor->waiting_lock) {
+        donation_list_elem->donor->waiting_lock = NULL;
+        list_remove(e);
       }
     }
+    list_sort(&sema->waiters, list_more_priority, NULL);
   }
 
   lock->holder = NULL;
