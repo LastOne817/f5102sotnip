@@ -665,7 +665,6 @@ bool list_more_priority (const struct list_elem *a,
   struct thread *t2 = list_entry (b, struct thread, elem);
 
   return thread_get_priority_with_thread(t1) > thread_get_priority_with_thread(t2);
-  /* return t1->priority > t2->priority; */
 }
 
 bool list_less_custom (const struct list_elem *a,

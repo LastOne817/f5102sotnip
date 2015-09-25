@@ -41,6 +41,8 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
+void propagate_donation(int, struct thread *, int);
+
 bool sema_list_more_priority (const struct list_elem *,
                                 const struct list_elem *,
                                 void *);
