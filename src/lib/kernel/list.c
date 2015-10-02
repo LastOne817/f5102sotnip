@@ -108,7 +108,7 @@ list_rbegin (struct list *list)
 
 /* Returns the element before ELEM in its list.  If ELEM is the
    first element in its list, returns the list head.  Results are
-   undefined if ELEM is itself a list head. */
+   undefined if ELEM is itself -> ele -> elemm a list head. */
 struct list_elem *
 list_prev (struct list_elem *elem)
 {
@@ -521,4 +521,16 @@ list_min (struct list *list, list_less_func *less, void *aux)
           min = e; 
     }
   return min;
+}
+
+bool 
+wait_list_less (const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+	struct thread *t1 = list_entry(a, struct thread, elem);
+	struct thread *t2 = list_entry(b, struct thread, elem);
+
+	int64_t t1_wait_end = (t1 -> wait_start) + (t1 -> wait_length);
+	int64_t t2_wait_end = (t2 -> wait_start) + (t2 -> wait_length);
+
+	return  t1_wait_end < t2_wait_end
 }
