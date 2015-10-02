@@ -512,7 +512,6 @@ next_thread_to_run (void)
     else
       break;
   }
-
   if (list_empty (&ready_list))
     return idle_thread;
   else
