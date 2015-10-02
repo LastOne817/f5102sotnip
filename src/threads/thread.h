@@ -80,6 +80,13 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+struct donation_list_elem
+  {
+    struct list_elem elem;
+    struct thread *donor;
+    int point;
+  };
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -109,6 +116,13 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    bool wait_flag;
+    int wait_start;
+    int wait_length;
+
+    struct list donor_list;
+    struct lock *waiting_lock;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -149,8 +163,15 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-bool priority_more (const struct list_elem *, const struct list_elem *, void *);
-bool wait_end_less (const struct list_elem *, const struct list_elem *, void *);
-void migrate_from_wait_to_ready (void);
+void thread_sleep(int64_t, int64_t);
 
+int thread_get_priority_with_thread (struct thread *);
+
+bool list_less_custom (const struct list_elem *,
+                              const struct list_elem *,
+                              void *);
+
+bool list_more_priority (const struct list_elem *,
+                                const struct list_elem *,
+                                void *);
 #endif /* threads/thread.h */
