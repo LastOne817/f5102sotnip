@@ -96,7 +96,8 @@ struct thread
 
     /* variables for priority donation */
     struct lock *hurdle;
-    struct list lock_list; 
+    struct list lock_list;
+    int priority_origin; 
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

@@ -382,18 +382,19 @@ rollback_priority_donation (struct lock *lock)
  
     if (list_empty (&t->lock_list)) return;
 
-    struct lock *lock2 = list_entry (list_front (&t->lock_list), struct lock, elem);
+    struct lock *highest_lock = list_entry (list_front (&t->lock_list), struct lock, elem);
 
-    if (lock2 != NULL) {
-      if (list_empty (&lock_high->semaphore.waiters)) {
+    if (highest_lock != NULL) {
+      if (list_empty (&highest_lock->semaphore.waiters)) {
         t->priority = t->priority_origin;
       }
       else {
         struct thread *hightest_waiting_t = list_entry (list_front (&lock_high->semaphore.wiaters), struct thread, elem);
         
-        if (
+        if (highest_waiting_t->priority > t->priority_origin) {
+          t->priority = hightest_waiting_t->priority;
+        }
       }
     }
-
   }
 }
