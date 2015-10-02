@@ -204,8 +204,6 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  if (priority > thread_current ()->priority)
-    thread_yield ();
 
   return tid;
 }
@@ -344,21 +342,6 @@ void
 thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
-  bool yield_required = false;
-
-  enum intr_level old_level = intr_disable ();
-
-  if (!list_empty (&ready_list)) {
-    struct thread *t = list_entry (list_front (&ready_list), struct thread, elem);
-
-    if (t->priority > new_priority)
-      yield_required = true;
-  }
-
-  intr_set_level (old_level);
-
-  if (yield_required)
-    thread_yield ();
 }
 
 /* Returns the current thread's priority. */
@@ -524,7 +507,6 @@ next_thread_to_run (void)
     else
       break;
   }
-
   if (list_empty (&ready_list))
     return idle_thread;
   else
@@ -618,7 +600,7 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-bool list_less_custom (const struct list_elem *a,
+static bool list_less_custom (const struct list_elem *a,
                               const struct list_elem *b,
                               void *aux)
 {
@@ -627,7 +609,7 @@ bool list_less_custom (const struct list_elem *a,
   return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
 }
 
-bool list_more_priority (const struct list_elem *a,
+static bool list_more_priority (const struct list_elem *a,
                                 const struct list_elem *b,
                                 void *aux)
 {
