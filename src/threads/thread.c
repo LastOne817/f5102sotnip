@@ -204,8 +204,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  /* yield thread when created */
-  thread_yield();
+  /* if newly created thread has higher priority than current thread, yield thread */
+  if(priority > thread_current ()->priority)
+    thread_yield ();
 
   return tid;
 }
