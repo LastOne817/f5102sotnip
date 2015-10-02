@@ -522,15 +522,3 @@ list_min (struct list *list, list_less_func *less, void *aux)
     }
   return min;
 }
-
-bool 
-wait_list_less (const struct list_elem *a, const struct list_elem *b, void *aux)
-{
-	struct thread *t1 = list_entry(a, struct thread, elem);
-	struct thread *t2 = list_entry(b, struct thread, elem);
-
-	int64_t t1_wait_end = (t1 -> wait_start) + (t1 -> wait_length);
-	int64_t t2_wait_end = (t2 -> wait_start) + (t2 -> wait_length);
-
-	return  t1_wait_end < t2_wait_end
-}

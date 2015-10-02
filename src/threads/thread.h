@@ -10,7 +10,6 @@ enum thread_status
   {
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
-		THREAD_WAITING,			/* Not running and not even ready to run */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
   };
@@ -144,5 +143,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool wait_end_less (const struct list_elem *, const struct list_elem *, void *);
+void migrate_from_wait_to_ready (void);
 
 #endif /* threads/thread.h */
