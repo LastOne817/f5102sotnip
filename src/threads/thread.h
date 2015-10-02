@@ -101,6 +101,7 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
+    /* Variables added for wait queue implementation */
     bool wait_flag;
     int64_t wait_start;
     int64_t wait_length;
@@ -142,7 +143,10 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* functions added for wait queue implemantation */
 void thread_sleep(int64_t, int64_t);
+
+void migrate_from_wait_to_ready (void);
 
 bool list_less_custom (const struct list_elem *,
                               const struct list_elem *,

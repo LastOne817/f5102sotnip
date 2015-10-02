@@ -501,17 +501,8 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
-  while (!list_empty (&wait_list)) {
-    struct list_elem *e = list_begin (&wait_list);
-    struct thread *t = list_entry (e, struct thread, elem);
-    if (timer_elapsed(t->wait_start) >= t->wait_length) {
-      list_pop_front (&wait_list);
-      t->wait_flag = false;
-      thread_unblock (t);
-    }
-    else
-      break;
-  }
+  /* Do migration here for efficiency even though you can do it when every tick increases. */
+  migrate_from_wait_to_ready ();
 
   if (list_empty (&ready_list))
     return idle_thread;
@@ -606,6 +597,8 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
+
+/* Push threads into wait queue(list) and make them sleeping */
 void
 thread_sleep(int64_t start, int64_t ticks)
 {
@@ -621,6 +614,24 @@ thread_sleep(int64_t start, int64_t ticks)
   intr_set_level (old_level);
 }
 
+/* This function migrates candidates which have finished sleeping(already waked up)
+   from wait queue(list) to ready queue(list). */
+void migrate_from_wait_to_ready (void)
+{
+  while (!list_empty (&wait_list)) {
+    struct list_elem *e = list_begin (&wait_list);
+    struct thread *t = list_entry (e, struct thread, elem);
+    if (timer_elapsed(t->wait_start) >= t->wait_length) {
+      list_pop_front (&wait_list);
+      t->wait_flag = false;
+      thread_unblock (t);
+    }
+    else
+      break;
+  }
+}
+
+/* Compare 2 threads who has more priority. */
 bool list_more_priority (const struct list_elem *a,
                               const struct list_elem *b,
                               void *aux)
@@ -630,6 +641,7 @@ bool list_more_priority (const struct list_elem *a,
   return t1->priority > t2->priority;
 }
 
+/* A kind of list_less_func which can be used to compare 2 threads' wake time(wait end). */
 bool list_less_custom (const struct list_elem *a,
                               const struct list_elem *b,
                               void *aux)
