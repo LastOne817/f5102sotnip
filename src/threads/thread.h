@@ -102,8 +102,8 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     bool wait_flag;
-    int wait_start;
-    int wait_length;
+    int64_t wait_start;
+    int64_t wait_length;
   };
 
 /* If false (default), use round-robin scheduler.
