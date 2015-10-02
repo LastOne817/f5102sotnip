@@ -4,7 +4,6 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
-#include "devices/timer.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -25,10 +24,6 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running */
 static struct list ready_list;
-
-/* List of processes in THREAD_WAIT state, that is, processes
-   that are not even ready to run */
-static struct list wait_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -99,7 +94,6 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
-  list_init (&wait_list);
   list_init (&all_list);
   list_init (&wait_list);
 
@@ -212,11 +206,6 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
   thread_yield();
 
-  /* if newly created thread has higher priority than current thread, yield thread */
-  /* should we check this ??????? */
-  if(priority > thread_current ()->priority)
-    thread_yield ();
-
   return tid;
 }
 
@@ -259,23 +248,6 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 
   list_sort(&ready_list, list_more_priority, NULL);
-}
-
-void
-thread_sleep (int64_t start, int64_t ticks)
-{
-  struct thread *t = thread_current ();
-  enum intr_level old_level;
-
-  t->wait_flag = true;
-  t->wait_start = start;
-  t->wait_length = ticks;
-
-  list_insert_ordered(&wait_list, &t->elem, wait_end_less, NULL);
-
-  old_level = intr_disable ();
-  thread_block ();
-  intr_set_level (old_level);
 }
 
 /* Returns the name of the running thread. */

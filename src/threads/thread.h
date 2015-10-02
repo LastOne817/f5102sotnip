@@ -63,7 +63,7 @@ typedef int tid_t;
          kB.
 
       2. Second, kernel stacks must not be allowed to grow too
-         large.  If a stack overflows, it will tickscorrupt the thread
+         large.  If a stack overflows, it will corrupt the thread
          state.  Thus, kernel functions should not allocate large
          structures or arrays as non-static local variables.  Use
          dynamic allocation with malloc() or palloc_get_page()
@@ -96,15 +96,6 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-
-    /* variables for implementing wait queue(list) */
-    bool wait_flag;
-    int64_t wait_start, wait_length;
-
-    /* variables for priority donation */
-    struct lock *hurdle;
-    struct list lock_list;
-    int priority_origin; 
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -141,8 +132,6 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
-
-void thread_sleep(int64_t, int64_t);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
