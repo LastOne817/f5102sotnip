@@ -108,7 +108,7 @@ list_rbegin (struct list *list)
 
 /* Returns the element before ELEM in its list.  If ELEM is the
    first element in its list, returns the list head.  Results are
-   undefined if ELEM is itself a list head. */
+   undefined if ELEM is itself -> ele -> elemm a list head. */
 struct list_elem *
 list_prev (struct list_elem *elem)
 {
