@@ -204,6 +204,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  /* yield thread when created */
   thread_yield();
 
   return tid;
@@ -247,6 +248,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   intr_set_level (old_level);
 
+  /* Sort ready queue(list) by prioritiy.(new thread is coming in.)*/
   list_sort(&ready_list, list_more_priority, NULL);
 }
 
@@ -317,6 +319,7 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread)
     list_push_back (&ready_list, &cur->elem);
+    /* Sort ready queue(list) by prioritiy.(new thread is coming in.)*/
     list_sort(&ready_list, list_more_priority, NULL);
     // list_insert_ordered(&ready_list, &cur->elem, list_more_priority, NULL);
   cur->status = THREAD_READY;
