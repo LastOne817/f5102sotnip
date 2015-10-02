@@ -90,9 +90,9 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
-		/* defined for implementing wait queue(list) */
-		bool wait_flag;	
-		int64_t wait_start, wait_length;  
+    /* defined for implementing wait queue(list) */
+    bool wait_flag;
+    int64_t wait_start, wait_length;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
