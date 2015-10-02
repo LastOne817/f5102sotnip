@@ -204,6 +204,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_yield();
 
   return tid;
 }
@@ -241,10 +242,12 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back (&ready_list, &t->elem);
-  list_insert_ordered(&ready_list, &t->elem, list_more_priority, NULL);
+  list_push_back (&ready_list, &t->elem);
+  // list_insert_ordered(&ready_list, &t->elem, list_more_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+
+  list_sort(&ready_list, list_more_priority, NULL);
 }
 
 /* Returns the name of the running thread. */
@@ -313,8 +316,9 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    //list_push_back (&ready_list, &cur->elem);
-    list_insert_ordered(&ready_list, &cur->elem, list_more_priority, NULL);
+    list_push_back (&ready_list, &cur->elem);
+    list_sort(&ready_list, list_more_priority, NULL);
+    // list_insert_ordered(&ready_list, &cur->elem, list_more_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -341,14 +345,48 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
+  struct list_elem *e;
+  struct thread *cur = thread_current();
+  struct donation_list_elem *donation_list_elem;
+
+  if (cur->priority > new_priority) {
+    int diff = cur->priority - new_priority;
+    if(!list_empty(&cur->donor_list)) {
+      for (e = list_begin (&cur->donor_list); e != list_end (&cur->donor_list); e = list_next (e)) {
+        donation_list_elem = list_entry (e, struct donation_list_elem, elem);
+        donation_list_elem->point = donation_list_elem->point + diff;
+      }
+    }
+  }
+  cur->priority = new_priority;
+  thread_yield();
+}
+
+int
+thread_get_priority_with_thread (struct thread *t) {
+  struct list_elem *e;
+  struct donation_list_elem *donation_list_elem;
+  int max_donated_value = 0;
+
+  if(!list_empty(&t->donor_list)) {
+    for (e = list_begin (&t->donor_list); e != list_end (&t->donor_list); e = list_next (e)) {
+      donation_list_elem = list_entry (e, struct donation_list_elem, elem);
+      if (max_donated_value < donation_list_elem->point) {
+        max_donated_value = donation_list_elem->point;
+      }
+    }
+  }
+
+  return t->priority + max_donated_value;
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  struct thread *cur = thread_current ();
+
+  return thread_get_priority_with_thread(cur);
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -469,6 +507,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  list_init(&t->donor_list);
+  t->waiting_lock = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -600,24 +641,6 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-static bool list_less_custom (const struct list_elem *a,
-                              const struct list_elem *b,
-                              void *aux)
-{
-  struct thread *t1 = list_entry (a, struct thread, elem);
-  struct thread *t2 = list_entry (b, struct thread, elem);
-  return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
-}
-
-static bool list_more_priority (const struct list_elem *a,
-                                const struct list_elem *b,
-                                void *aux)
-{
-  struct thread *t1 = list_entry (a, struct thread, elem);
-  struct thread *t2 = list_entry (b, struct thread, elem);
-  return t1->priority > t2->priority;
-}
-
 void
 thread_sleep(int64_t start, int64_t ticks)
 {
@@ -632,3 +655,24 @@ thread_sleep(int64_t start, int64_t ticks)
   thread_block ();
   intr_set_level (old_level);
 }
+
+bool list_more_priority (const struct list_elem *a,
+                              const struct list_elem *b,
+                              void *aux)
+{
+  struct thread *t1 = list_entry (a, struct thread, elem);
+  struct thread *t2 = list_entry (b, struct thread, elem);
+
+  return thread_get_priority_with_thread(t1) > thread_get_priority_with_thread(t2);
+}
+
+bool list_less_custom (const struct list_elem *a,
+                              const struct list_elem *b,
+                              void *aux)
+{
+  struct thread *t1 = list_entry (a, struct thread, elem);
+  struct thread *t2 = list_entry (b, struct thread, elem);
+  return t1->wait_start + t1->wait_length < t2->wait_start + t2->wait_length;
+}
+
+
