@@ -22,7 +22,7 @@ static int64_t ticks;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
- */static unsigned loops_per_tick;
+static unsigned loops_per_tick;
 
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
