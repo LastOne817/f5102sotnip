@@ -204,7 +204,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  thread_yield();
+  /* yield thread when the thread is newly created */
+  /* should we check its priority?... priority > current_thread()->priority.. think about it later */
+  thread_yield ();
 
   return tid;
 }
@@ -247,6 +249,7 @@ thread_unblock (struct thread *t)
   t->status = THREAD_READY;
   intr_set_level (old_level);
 
+  /* Sort ready queue(list) by prioritiy.(new thread is coming in.)*/
   list_sort(&ready_list, list_more_priority, NULL);
 }
 
@@ -317,6 +320,7 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread)
     list_push_back (&ready_list, &cur->elem);
+    /* Sort ready queue(list) by prioritiy.(new thread is coming in.)*/
     list_sort(&ready_list, list_more_priority, NULL);
     // list_insert_ordered(&ready_list, &cur->elem, list_more_priority, NULL);
   cur->status = THREAD_READY;
@@ -537,17 +541,9 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
-  while (!list_empty (&wait_list)) {
-    struct list_elem *e = list_begin (&wait_list);
-    struct thread *t = list_entry (e, struct thread, elem);
-    if (timer_elapsed(t->wait_start) >= t->wait_length) {
-      list_pop_front (&wait_list);
-      t->wait_flag = false;
-      thread_unblock (t);
-    }
-    else
-      break;
-  }
+  /* Do migration here for efficiency even though you can do it when every tick increases. */
+  migrate_from_wait_to_ready ();
+
   if (list_empty (&ready_list))
     return idle_thread;
   else
@@ -641,6 +637,8 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
+
+/* Push threads into wait queue(list) and make them sleeping */
 void
 thread_sleep(int64_t start, int64_t ticks)
 {
@@ -656,6 +654,24 @@ thread_sleep(int64_t start, int64_t ticks)
   intr_set_level (old_level);
 }
 
+/* This function migrates candidates which have finished sleeping(already waked up)
+   from wait queue(list) to ready queue(list). */
+void migrate_from_wait_to_ready (void)
+{
+  while (!list_empty (&wait_list)) {
+    struct list_elem *e = list_begin (&wait_list);
+    struct thread *t = list_entry (e, struct thread, elem);
+    if (timer_elapsed(t->wait_start) >= t->wait_length) {
+      list_pop_front (&wait_list);
+      t->wait_flag = false;
+      thread_unblock (t);
+    }
+    else
+      break;
+  }
+}
+
+/* Compare 2 threads who has more priority. */
 bool list_more_priority (const struct list_elem *a,
                               const struct list_elem *b,
                               void *aux)
@@ -666,6 +682,7 @@ bool list_more_priority (const struct list_elem *a,
   return thread_get_priority_with_thread(t1) > thread_get_priority_with_thread(t2);
 }
 
+/* A kind of list_less_func which can be used to compare 2 threads' wake time(wait end). */
 bool list_less_custom (const struct list_elem *a,
                               const struct list_elem *b,
                               void *aux)

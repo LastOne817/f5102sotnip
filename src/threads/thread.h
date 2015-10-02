@@ -108,9 +108,10 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
+    /* Variables added for wait queue implementation */
     bool wait_flag;
-    int wait_start;
-    int wait_length;
+    int64_t wait_start;
+    int64_t wait_length;
 
     struct list donor_list;
     struct lock *waiting_lock;
@@ -152,8 +153,10 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* functions added for wait queue implemantation */
 void thread_sleep(int64_t, int64_t);
 
+void migrate_from_wait_to_ready (void);
 int thread_get_priority_with_thread (struct thread *);
 
 bool list_less_custom (const struct list_elem *,
