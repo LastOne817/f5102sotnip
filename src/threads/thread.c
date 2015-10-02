@@ -244,6 +244,7 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_push_back (&ready_list, &t->elem);
+  list_sort(&ready_list, priority_more, NULL); 
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -330,8 +331,10 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+  if (cur != idle_thread) { 
     list_push_back (&ready_list, &cur->elem);
+    list_sort(&ready_list, priority_more, NULL);
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -619,6 +622,15 @@ wait_end_less (const struct list_elem *a, const struct list_elem *b, void *aux)
   int64_t t2_wait_end = t2->wait_start + t2->wait_length;
 
   return  t1_wait_end < t2_wait_end;
+}
+
+bool
+priority_more (const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  struct thread *t1 = list_entry(a, struct thread, elem);
+  struct thread *t2 = list_entry(b, struct thread, elem);
+
+  return  t1->priority > t2->priority;
 }
 
 void

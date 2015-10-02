@@ -144,6 +144,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+bool priority_more (const struct list_elem *, const struct list_elem *, void *);
 bool wait_end_less (const struct list_elem *, const struct list_elem *, void *);
 void migrate_from_wait_to_ready (void);
 
