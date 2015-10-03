@@ -80,6 +80,13 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+struct donation_list_elem
+  {
+    struct list_elem elem;
+    struct thread *donor;
+    int point;
+  };
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -93,10 +100,6 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    int wait_flag;
-    int wait_start;
-    int wait_length;
-
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -104,6 +107,14 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    /* Variables added for wait queue implementation */
+    bool wait_flag;
+    int64_t wait_start;
+    int64_t wait_length;
+
+    struct list donor_list;
+    struct lock *waiting_lock;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -116,8 +127,6 @@ void thread_start (void);
 
 void thread_tick (void);
 void thread_print_stats (void);
-
-void thread_sleep (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
@@ -144,4 +153,17 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* functions added for wait queue implemantation */
+void thread_sleep(int64_t, int64_t);
+
+void migrate_from_wait_to_ready (void);
+int thread_get_priority_with_thread (struct thread *);
+
+bool list_less_custom (const struct list_elem *,
+                              const struct list_elem *,
+                              void *);
+
+bool list_more_priority (const struct list_elem *,
+                                const struct list_elem *,
+                                void *);
 #endif /* threads/thread.h */
