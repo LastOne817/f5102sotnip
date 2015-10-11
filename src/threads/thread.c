@@ -205,8 +205,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   /* yield thread when the thread is newly created */
-  /* should we check its priority?... priority > current_thread()->priority.. think about it later */
-  thread_yield ();
+  if (priority > thread_current()->priority)
+    thread_yield ();
 
   return tid;
 }
@@ -351,46 +351,30 @@ thread_set_priority (int new_priority)
 {
   struct list_elem *e;
   struct thread *cur = thread_current();
-  struct donation_list_elem *donation_list_elem;
+  struct lock *lock;
+  struct thread *donor;
 
-  if (cur->priority > new_priority) {
-    int diff = cur->priority - new_priority;
-    if(!list_empty(&cur->donor_list)) {
-      for (e = list_begin (&cur->donor_list); e != list_end (&cur->donor_list); e = list_next (e)) {
-        donation_list_elem = list_entry (e, struct donation_list_elem, elem);
-        donation_list_elem->point = donation_list_elem->point + diff;
-      }
-    }
-  }
+  cur->original_priority = new_priority;
   cur->priority = new_priority;
-  thread_yield();
-}
-
-int
-thread_get_priority_with_thread (struct thread *t) {
-  struct list_elem *e;
-  struct donation_list_elem *donation_list_elem;
-  int max_donated_value = 0;
-
-  if(!list_empty(&t->donor_list)) {
-    for (e = list_begin (&t->donor_list); e != list_end (&t->donor_list); e = list_next (e)) {
-      donation_list_elem = list_entry (e, struct donation_list_elem, elem);
-      if (max_donated_value < donation_list_elem->point) {
-        max_donated_value = donation_list_elem->point;
+  if(!list_empty(&cur->hold_lock_list)) {
+    for (e = list_begin (&cur->hold_lock_list); e != list_end (&cur->hold_lock_list); e = list_next (e)) {
+      lock = list_entry (e, struct lock, elem);
+      if (!list_empty(&lock->semaphore.waiters)) {
+        donor = list_entry(list_front(&lock->semaphore.waiters), struct thread, elem);
+        if(cur->priority < donor->priority) {
+          cur->priority = donor->priority;
+        }
       }
     }
   }
-
-  return t->priority + max_donated_value;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
-  struct thread *cur = thread_current ();
-
-  return thread_get_priority_with_thread(cur);
+  return thread_current()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -510,9 +494,10 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->original_priority = priority;
   t->magic = THREAD_MAGIC;
 
-  list_init(&t->donor_list);
+  list_init (&t->hold_lock_list);
   t->waiting_lock = NULL;
 
   old_level = intr_disable ();
@@ -679,7 +664,7 @@ bool list_more_priority (const struct list_elem *a,
   struct thread *t1 = list_entry (a, struct thread, elem);
   struct thread *t2 = list_entry (b, struct thread, elem);
 
-  return thread_get_priority_with_thread(t1) > thread_get_priority_with_thread(t2);
+  return t1->priority > t2->priority;
 }
 
 /* A kind of list_less_func which can be used to compare 2 threads' wake time(wait end). */
